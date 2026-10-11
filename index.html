@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Математикалық Лабиринт — v7</title>
+<style>
+:root{
+  --bg:#f8fafc; --card:#fff; --ink:#1e293b; --muted:#64748b;
+  --border:#cbd5e1; --accent:#0284c7; --good:#16a34a;
+  --bad:#dc2626; --active:#e0f2fe;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Segoe UI,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+button{font:inherit}
+.container{width:min(1100px,100%);margin:0 auto;padding:20px;flex:1}
+.screen{display:none}.screen.active{display:block}
+h1{margin:0 0 4px;text-align:center;font-size:clamp(1.5rem,3vw,2.2rem)}
+.author-tag{text-align:center;font-weight:600;color:var(--accent);font-size:1rem;margin-bottom:12px}
+.subtitle{text-align:center;color:var(--muted);margin:0 0 22px}
+.grade-title{font-weight:800;font-size:1.1rem;margin:22px 0 10px;padding-left:10px;border-left:4px solid var(--accent)}
+.topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.topic-card{border:2px solid var(--border);background:#fff;border-radius:14px;padding:16px;cursor:pointer;transition:.18s}
+.topic-card:hover{border-color:var(--accent);background:#f0f9ff;transform:translateY(-2px)}
+.topic-card b{display:block;margin-bottom:5px}
+.muted{color:var(--muted);font-size:.9rem}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.btn{border:0;border-radius:10px;padding:10px 15px;background:var(--ink);color:#fff;font-weight:700;cursor:pointer}
+.btn.secondary{background:#64748b}.btn:hover{filter:brightness(1.08)}
+.game-head{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 15px;margin-bottom:12px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.95rem}
+.stats b{color:var(--ink)}
+.maze-wrap{overflow:visible;padding:25px 15px}
+.maze{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:800px;margin:auto}
+.cell{position:relative;background:#fff;border:2px solid var(--border);border-radius:14px;padding:15px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.cell.active{border-color:var(--accent);background:var(--active);box-shadow:0 0 0 4px #bae6fd}
+.cell.visited{border-color:#86efac}
+.cell.start{border-color:#84cc16}
+.cell.finish{border-color:#84cc16;background:#f0fdf4}
+
+/* Отображение верстки математических дробей */
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 0.95em;
+  margin: 0 0.2em;
+}
+.frac .num {
+  border-bottom: 1.5px solid currentColor;
+  padding: 0 0.15em;
+}
+.frac .den {
+  padding: 0 0.15em;
+}
+
+/* Кнопки-переходы между карточками (исправлены отступы и позиционирование) */
+.edge-btn{
+  position:absolute;
+  z-index:10;
+  background:#fff;
+  border:2px solid var(--accent);
+  color:var(--accent);
+  font-weight:bold;
+  border-radius:8px;
+  padding:4px 8px;
+  cursor:pointer;
+  font-size:0.85rem;
+  box-shadow:0 2px 5px rgba(0,0,0,0.12);
+  white-space:nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.edge-btn:hover{background:var(--accent);color:#fff}
+
+.edge-btn.right{right:-18px;top:50%;transform:translateY(-50%)}
+.edge-btn.left{left:-18px;top:50%;transform:translateY(-50%)}
+.edge-btn.bottom{bottom:-16px;left:50%;transform:translateX(-50%)}
+.edge-btn.top{top:-16px;left:50%;transform:translateX(-50%)}
+
+.feedback{min-height:54px;margin:5px 0 12px;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid var(--border)}
+.feedback.good{border-color:#86efac;background:#f0fdf4;color:#166534}
+.feedback.bad{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.hint{margin-top:6px;color:#92400e}
+.result-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px;max-width:600px;margin:20px auto;text-align:center}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.result-grid div{background:#f8fafc;border-radius:10px;padding:12px}
+
+footer{text-align:center;padding:15px;color:var(--muted);font-size:0.9rem;border-top:1px solid var(--border);background:#fff;margin-top:auto}
+</style>
+</head>
+<body>
+<div class="container">
+
+<section id="menu" class="screen active">
+  <h1>Математикалық Лабиринт</h1>
+  <div class="author-tag">Авторы: Кадиргалиев Ерболат Кудабаевич</div>
+  <p class="subtitle">Тақырыпты таңдаңыз. Есепті шығарып, дұрыс жауабы бар көпір арқылы өтіңіз.</p>
+
+  <div class="grade-title">5-сынып / 5 класс</div>
+  <div class="topic-grid">
+    <div class="topic-card" onclick="loadMaze('rounding')"><b>Ондық бөлшектерді дөңгелектеу</b><span class="muted">Округление десятичных дробей</span></div>
+    <div class="topic-card" onclick="loadMaze('multiplication')"><b>Көптаңбалы сандарды көбейту</b><span class="muted">Умножение многозначных чисел</span></div>
+    <div class="topic-card" onclick="loadMaze('percentages')"><b>Пайыздар</b><span class="muted">Проценты</span></div>
+  </div>
+
+  <div class="grade-title">6-сынып / 6 класс</div>
+  <div class="topic-grid">
+    <div class="topic-card" onclick="loadMaze('equations')"><b>Жай теңдеулер</b><span class="muted">Простые уравнения</span></div>
+    <div class="topic-card" onclick="loadMaze('frac_div')"><b>Жай бөлшектерді бөлу</b><span class="muted">Деление обыкновенных дробей</span></div>
+    <div class="topic-card" onclick="loadMaze('brackets')"><b>Жақшаларды ашу</b><span class="muted">Раскрытие скобок</span></div>
+    <div class="topic-card" onclick="loadMaze('integers')"><b>Оң және теріс сандар</b><span class="muted">Положительные и отрицательные числа</span></div>
+  </div>
+
+  <div class="grade-title">7-сынып / 7 класс</div>
+  <div class="topic-grid">
+    <div class="topic-card" onclick="loadMaze('powers')"><b>Дәреже қасиеттері</b><span class="muted">Свойства степеней</span></div>
+    <div class="topic-card" onclick="loadMaze('fsu')"><b>Қысқаша көбейту формулалары</b><span class="muted">ФСУ</span></div>
+  </div>
+
+  <div class="grade-title">8-сынып / 8 класс</div>
+  <div class="topic-grid">
+    <div class="topic-card" onclick="loadMaze('pythagoras')"><b>Пифагор теоремасы</b><span class="muted">Теорема Пифагора</span></div>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <div class="game-head">
+    <div>
+      <b id="title"></b>
+      <div class="stats">
+        <span>⏱ <b id="timer">00:00</b></span>
+        <span>⚠ Қате: <b id="errors">0</b></span>
+        <span>✓ Қадам: <b id="steps">0</b></span>
+      </div>
+    </div>
+    <button class="btn secondary" onclick="showMenu()">◀ Мәзір</button>
+    <button class="btn" onclick="restart()">↻ Қайта бастау</button>
+  </div>
+
+  <div id="feedback" class="feedback">Есепті шығар да, дұрыс жауап жазылған көпірді таңда.</div>
+  <div class="maze-wrap"><div id="maze" class="maze"></div></div>
+</section>
+
+<section id="result" class="screen">
+  <div class="result-card">
+    <h1>Жеңіс! 🎉</h1>
+    <p id="resultTitle"></p>
+    <div class="result-grid">
+      <div>Уақыт<br><b id="resultTime"></b></div>
+      <div>Қателер<br><b id="resultErrors"></b></div>
+      <div>Қадамдар<br><b id="resultSteps"></b></div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="restart()">↻ Қайтадан өту</button>
+      <button class="btn secondary" onclick="showMenu()">Мәзірге оралу</button>
+    </div>
+  </div>
+</section>
+</div>
+
+<footer>
+  Математикалық Лабиринт &copy; Автор: <b>Кадиргалиев Ерболат Кудабаевич</b>
+</footer>
+
+<script>
+function f(num, den) {
+  return `<span class="frac"><span class="num">${num}</span><span class="den">${den}</span></span>`;
+}
+
+const MAZES = {
+  percentages:{
+    title:"Пайыздар / Проценты",
+    tasks:[
+      ["28-нің 50%-ы","14"],["30-дың 20%-ы","6"],["32-нің 75%-ы","24"],
+      ["80-нің 11%-ы","8,8"],["100-дің 12%-ы","12"],["90-ның 30%-ы","27"],
+      ["64-тің 25%-ы","16"],["50-дің 40%-ы","20"],["150-дің 10%-ы","15"]
+    ],
+    hints:[
+      "50% — бұл санның жартысы (2-ге бөл).",
+      "20% — бұл санның бестен бір бөлігі (5-ке бөл).",
+      "75% — бұл санның 3/4 бөлігі (3-ке көбейтіп, 4-ке бөл).",
+      "11% = 0,11 * 80.",
+      "100-дің 12%-ы дәл 12-ге тең.",
+      "30% = 0,3 * 90.",
+      "25% — бұл төрттен бір бөлігі (4-ке бөл).",
+      "40% = 0,4 * 50.",
+      "10% — бұл оннан бір бөлігі (10-ға бөл)."
+    ]
+  },
+  rounding:{
+    title:"Ондық бөлшектерді дөңгелектеу / Округление десятичных дробей",
+    tasks:[
+      ["298,367 жүздік үлеске дейін","298,37"],
+      ["398,457 бірлікке дейін","398"],
+      ["2345,877 жүздіктерге дейін","2300"],
+      ["786,657 бірлікке дейін","787"],
+      ["789,8915 ондық үлеске дейін","789,9"],
+      ["4365,8964 мыңдықтарға дейін","4000"],
+      ["53235,547 жүздік үлеске дейін","53235,55"],
+      ["532,536 бірлікке дейін","533"],
+      ["1900,9999 мыңдық үлеске дейін","1901"]
+    ],
+    hints:[
+      "Жүздік үлестен кейін 7 тұр (>=5), 1-ді қосамыз.",
+      "Үтірден кейін 4 тұр (<5), 398 болып қалады.",
+      "Жүздіктерге дейін: ондықтарға қараймыз (4 < 5).",
+      "Үтірден кейін 6 тұр (>=5), үлкен жағына дөңгелектейміз.",
+      "Ондық үлестен кейін 9 тұр (>=5), 1-ді қосамыз.",
+      "Жүздіктерге қараймыз (3 < 5), 4000 болады.",
+      "Жүздік үлестен кейін 7 тұр (>=5), 53235,55 болады.",
+      "Үтірден кейін 5 тұр (>=5), 533-ке дейін дөңгелектейміз.",
+      "Дөңгелектеу кезінде разрядтар бойынша өсу орын алып, 1901 шығады."
+    ]
+  },
+  frac_div:{
+    title:"Жай бөлшектерді бөлу / Деление обыкновенных дробей",
+    tasks:[
+      [`${f(2,4)} ÷ ${f(3,4)}`, f(2,3)],
+      [`${f(3,4)} ÷ ${f(1,4)}`, "3"],
+      [`${f(1,2)} ÷ ${f(1,4)}`, "2"],
+      [`${f(2,3)} ÷ ${f(1,3)}`, "2"],
+      [`${f(5,6)} ÷ ${f(1,6)}`, "5"],
+      [`${f(3,8)} ÷ ${f(1,8)}`, "3"],
+      [`${f(4,5)} ÷ ${f(2,5)}`, "2"],
+      [`${f(6,7)} ÷ ${f(2,7)}`, "3"],
+      [`${f(1,3)} ÷ ${f(1,6)}`, "2"]
+    ],
+    hints:[
+      "Бөлшекті бөлшекке бөлу үшін бірінші бөлшекті екіншісінің кері бөлшегіне көбейтіңіз.",
+      "(3/4) * (4/1) = 3.",
+      "(1/2) * (4/1) = 2.",
+      "Бөлімдері бірдей, алымдарын бөлеміз: 2 / 1 = 2.",
+      "5 / 1 = 5.",
+      "3 / 1 = 3.",
+      "4 / 2 = 2.",
+      "6 / 2 = 3.",
+      "(1/3) * (6/1) = 2."
+    ]
+  },
+  equations:{
+    title:"Жай теңдеулер / Простые уравнения",
+    tasks:[
+      ["3x = 6","2"],["n - 9 = 12","21"],[`${f('p',6)} = 8`,"48"],
+      ["q + 8 = 11","3"],["h + 4 = 12","8"],["z - 6 = 24","30"],
+      ["m - 13 = 4","17"],["5y = 20","4"],[`${f('r',3)} = 9`,"27"]
+    ],
+    hints:[
+      "Раздели обе части на 3: x = 6 / 3.",
+      "Прибавь 9 к обеим частям: n = 12 + 9.",
+      "Умножь обе части на 6: p = 8 * 6.",
+      "Вычти 8 из обеих частей: q = 11 - 8.",
+      "Вычти 4 из обеих частей: h = 12 - 4.",
+      "Прибавь 6 к обеим частям: z = 24 + 6.",
+      "Прибавь 13 к обеим частям: m = 4 + 13.",
+      "Раздели обе части на 5: y = 20 / 5.",
+      "Умножь обе части на 3: r = 9 * 3."
+    ]
+  },
+  multiplication:{
+    title:"Көптаңбалы сандарды көбейту / Умножение многозначных чисел",
+    tasks:[
+      ["66 × 92","6072"],["86 × 33","2838"],["23 × 67","1541"],
+      ["196 × 36","7056"],["425 × 18","7650"],["712 × 14","9968"],
+      ["150 × 24","3600"],["310 × 15","4650"],["120 × 40","4800"]
+    ],
+    hints:[
+      "66 * 90 + 66 * 2 = 5940 + 132.",
+      "86 * 30 + 86 * 3 = 2580 + 258.",
+      "23 * 60 + 23 * 7 = 1380 + 161.",
+      "196 * 30 + 196 * 6.",
+      "425 * 10 + 425 * 8.",
+      "712 * 10 + 712 * 4.",
+      "150 * 20 + 150 * 4.",
+      "310 * 10 + 310 * 5.",
+      "12 * 4 и добавь два нуля."
+    ]
+  },
+  integers:{
+    title:"Оң және теріс сандар / Положительные и отрицательные числа",
+    tasks:[
+      ["-8 + 2","-6"],["-9 + (-8)","-17"],["3 - (-7)","10"],
+      ["9 + (-2)","7"],["7 - 18","-11"],["-6 + (-9)","-15"],
+      ["-2 - 18","-20"],["-12 + 14","2"],["16 + 5","21"]
+    ],
+    hints:[
+      "Теріс санға оң сан қосқанда модульдерін азайт.",
+      "Екі теріс санды қосқанда модульдер қосылып, таңба теріс болады.",
+      "Теріс санды азайту — оған қарама-қарсы санды қосу.",
+      "9 + (-2) = 9 - 2.",
+      "7 - 18 санының нәтижесі теріс.",
+      "-6 + (-9): модульдерді қос.",
+      "-2 - 18 = -2 + (-18).",
+      "-12 + 14: үлкен модульдің таңбасы сақталады.",
+      "16 + 5 = 21."
+    ]
+  },
+  brackets:{
+    title:"Жақшаларды ашу / Раскрытие скобок",
+    tasks:[
+      ["-3(x - 4) + 2x","-x + 12"],["2(a + 3) - 5","2a + 1"],["-(x - 2) + 3","-x + 5"],
+      ["5a - 2(b + a)","3a - 2b"],["-2(3y - 1) - 4y","-10y + 2"],["3(2b - 1) + 4","6b + 1"],
+      ["3(x + 1)","3x + 3"],["4(2c + 3) - 5c","3c + 12"],["6x - (2x - 5) - 3","4x + 2"]
+    ],
+    hints:[
+      "-3·x + 12 + 2x = -x + 12.",
+      "2·a + 2·3 - 5 = 2a + 1.",
+      "Минус жақша алдындағы барлық таңбаны өзгертеді: -x + 2 + 3.",
+      "5a - 2b - 2a = 3a - 2b.",
+      "-2·3y = -6y және -2·(-1) = +2; -6y - 4y + 2.",
+      "3·2b = 6b, 3·(-1) = -3; 6b - 3 + 4.",
+      "3·x + 3·1 = 3x + 3.",
+      "8c + 12 - 5c = 3c + 12.",
+      "6x - 2x + 5 - 3 = 4x + 2."
+    ]
+  },
+  powers:{
+    title:"Дәреже қасиеттері / Свойства степеней",
+    tasks:[
+      ["x⁴ · x³","x⁷"],["(y²)⁶","y¹²"],["a⁹ / a³","a⁶"],
+      ["(2b³)³","8b⁹"],["c⁴ · c²","c⁶"],["a⁵ / a²","a³"],
+      ["(x²)⁵","x¹⁰"],["x⁶ / x³","x³"],["y⁸ / y²","y⁶"]
+    ],
+    hints:[
+      "x^m · x^n = x^(m+n)",
+      "(a^m)^n = a^(mn)",
+      "a^m / a^n = a^(m-n)",
+      "2³ · (b³)³ = 8b⁹",
+      "Көбейткенде көрсеткіштер қосылады: 4 + 2",
+      "Бөлгенде көрсеткіштер азайтылады: 5 - 2",
+      "Дәрежеге дәрежелегенде көрсеткіштер көбейтіледі: 2 · 5",
+      "Бөлгенде көрсеткіштер азайтылады: 6 - 3",
+      "Бөлгенде көрсеткіштер азайтылады: 8 - 2"
+    ]
+  },
+  fsu:{
+    title:"Қысқаша көбейту формулалары / ФСУ",
+    tasks:[
+      ["(x + 4)²","x² + 8x + 16"],["(3a - 2)(3a + 2)","9a² - 4"],["(2y - 5)²","4y² - 20y + 25"],
+      ["m² - 49","(m - 7)(m + 7)"],["(5x + 1)² - 25x²","10x + 1"],["(a - 3)(a + 3)","a² - 9"],
+      ["(x - 5)²","x² - 10x + 25"],["a² - 9","(a - 3)(a + 3)"],["(x + 3)²","x² + 6x + 9"]
+    ],
+    hints:[
+      "(a + b)² = a² + 2ab + b²",
+      "(a - b)(a + b) = a² - b²",
+      "(a - b)² = a² - 2ab + b²",
+      "Квадраттар айырымы: a² - b² = (a - b)(a + b)",
+      "Қосындының квадратын аш: 25x² + 10x + 1 - 25x²",
+      "Квадраттар айырымы: (a - b)(a + b)",
+      "(a - b)² = a² - 2ab + b²",
+      "Квадраттар айырымы: a² - b²",
+      "(a + b)² = a² + 2ab + b²"
+    ]
+  },
+  pythagoras:{
+    title:"Пифагор теоремасы / Теорема Пифагора",
+    tasks:[
+      ["a = 3, b = 4; c = ?","5"],["c = 10, a = 6; b = ?","8"],["a = 5, b = 12; c = ?","13"],
+      ["c = 13, a = 5; b = ?","12"],["a = 8, b = 15; c = ?","17"],["c = 25, a = 7; b = ?","24"],
+      ["a = 9, b = 12; c = ?","15"],["c = 10, b = 8; a = ?","6"],["c = 15, a = 9; b = ?","12"]
+    ],
+    hints:["c=√(a²+b²)","b=√(c²-a²)","5²+12²","b=√(13²-5²)","8²+15²","b=√(25²-7²)","9²+12²","a=√(10²-8²)","b=√(15²-9²)"]
+  }
+};
+
+const POSSIBLE_PATHS = [
+  [[0,0],[0,1],[0,2],[1,2],[1,1],[1,0],[2,0],[2,1],[2,2]],
+  [[0,0],[1,0],[2,0],[2,1],[1,1],[0,1],[0,2],[1,2],[2,2]],
+  [[0,0],[0,1],[1,1],[1,0],[2,0],[2,1],[2,2]]
+];
+
+let currentKey=null, currentPath=[], pathIndex=0, errors=0, steps=0, seconds=0, timerId=null;
+
+function getUniqueDistractors(correctAnswer, maze, countNeeded) {
+  const pool = maze.tasks.map(t => t[1]).filter(ans => ans !== correctAnswer);
+  const uniquePool = [...new Set(pool)];
+  
+  uniquePool.sort(() => Math.random() - 0.5);
+
+  const selected = [];
+  for (let item of uniquePool) {
+    if (selected.length < countNeeded) {
+      selected.push(item);
+    }
+  }
+
+  let counter = 1;
+  while (selected.length < countNeeded) {
+    let num = parseFloat(correctAnswer.replace(',', '.'));
+    let generated;
+    if (!isNaN(num)) {
+      let mod = num + (counter % 2 === 0 ? counter : -counter);
+      generated = String(mod).replace('.', ',');
+    } else {
+      generated = correctAnswer + "′";
+    }
+    if (generated !== correctAnswer && !selected.includes(generated)) {
+      selected.push(generated);
+    }
+    counter++;
+  }
+
+  return selected;
+}
+
+function loadMaze(keyName){
+  currentKey = keyName;
+  currentPath = POSSIBLE_PATHS[Math.floor(Math.random() * POSSIBLE_PATHS.length)];
+  pathIndex = 0; errors = 0; steps = 0; seconds = 0;
+  clearInterval(timerId);
+  
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('game').classList.add('active');
+  document.getElementById('title').textContent = MAZES[keyName].title;
+  
+  updateStats();
+  render();
+  timerId = setInterval(()=>{ seconds++; updateStats(); }, 1000);
+}
+
+function render(){
+  const maze = MAZES[currentKey];
+  const root = document.getElementById('maze');
+  root.innerHTML = '';
+  
+  const [curR, curC] = currentPath[pathIndex];
+  const nextPos = currentPath[pathIndex + 1];
+
+  for(let r=0; r<3; r++){
+    for(let c=0; c<3; c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      
+      const isCurrent = (r === curR && c === curC);
+      if(isCurrent) cell.classList.add('active');
+      if(r===0 && c===0) cell.classList.add('start');
+      if(r===2 && c===2) cell.classList.add('finish');
+      
+      const isFinishReached = (r === 2 && c === 2 && pathIndex === currentPath.length - 1);
+
+      if(isFinishReached){
+        cell.innerHTML = '<b>Финиш<br>Жеңіс! 🎉</b>';
+      } else {
+        cell.innerHTML = `<div><b>${maze.tasks[r*3+c][0]}</b></div>`;
+      }
+
+      if(isCurrent && nextPos){
+        const neighbors = [[r, c+1, 'right'], [r+1, c, 'bottom'], [r, c-1, 'left'], [r-1, c, 'top']];
+        const validNeighbors = neighbors.filter(([nr, nc]) => nr >= 0 && nr < 3 && nc >= 0 && nc < 3);
+
+        const correctAnswer = maze.tasks[r*3+c][1];
+        const distractorsNeeded = validNeighbors.length - 1;
+        const distractors = getUniqueDistractors(correctAnswer, maze, distractorsNeeded);
+
+        let distractorIdx = 0;
+        validNeighbors.forEach(([nr, nc, dir]) => {
+          const isCorrectTarget = (nr === nextPos[0] && nc === nextPos[1]);
+          const btn = document.createElement('button');
+          btn.className = `edge-btn ${dir}`;
+          
+          if(isCorrectTarget){
+            btn.innerHTML = correctAnswer;
+            btn.onclick = () => stepSuccess();
+          } else {
+            btn.innerHTML = distractors[distractorIdx++];
+            btn.onclick = () => stepError(r, c);
+          }
+          cell.appendChild(btn);
+        });
+      }
+
+      root.appendChild(cell);
+    }
+  }
+}
+
+function stepSuccess(){
+  steps++;
+  pathIndex++;
+  setFeedback('Дұрыс! ✓ Келесі ұяшыққа өттің.','good');
+  
+  if(pathIndex === currentPath.length - 1){
+    finish();
+  } else {
+    render();
+  }
+  updateStats();
+}
+
+function stepError(r, c){
+  errors++;
+  const hint = MAZES[currentKey].hints[r*3+c];
+  setFeedback(`Қате жауап. Қайтадан байқап көр.<div class="hint">💡 ${hint}</div>`,'bad');
+  updateStats();
+}
+
+function updateStats(){
+  document.getElementById('timer').textContent = formatTime(seconds);
+  document.getElementById('errors').textContent = errors;
+  document.getElementById('steps').textContent = steps;
+}
+
+function formatTime(s){
+  return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+
+function setFeedback(html,cls=''){
+  const f = document.getElementById('feedback');
+  f.className = 'feedback ' + cls;
+  f.innerHTML = html;
+}
+
+function restart(){ if(currentKey) loadMaze(currentKey); }
+
+function showMenu(){
+  clearInterval(timerId);
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('menu').classList.add('active');
+}
+
+function finish(){
+  clearInterval(timerId);
+  document.getElementById('resultTitle').textContent = MAZES[currentKey].title;
+  document.getElementById('resultTime').textContent = formatTime(seconds);
+  document.getElementById('resultErrors').textContent = errors;
+  document.getElementById('resultSteps').textContent = steps;
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('result').classList.add('active');
+}
+</script>
+</body>
+</html>
